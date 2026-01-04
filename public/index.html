@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login with Mixpanel</title>
+<script>
+function getAuthorizationCodeFromUrl() {
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get('code');
+}
+
+function loginWithMixpanel() {
+  const authUrl =
+    "https://mixpanel.com/oauth/authorize" +
+    "?client_id=7Zcm8MIcu6LO1UnyNc26xcvjgiTvxmqnXz1flAes" +
+    "&redirect_uri=" + encodeURIComponent("http://localhost:8000/callback") +
+    "&response_type=code" +
+    "&code_challenge=QH_C1pgDH6hLTwHtRDjw0KvPvt02uPrenrA5zQcuhKQ" +
+    "&code_challenge_method=S256";
+  window.location.href = authUrl;
+}
+
+async function getAccessToken(code) {
+  try {
+    const res = await fetch("/exchange", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code })
+    });
+    const data = await res.json();
+    document.getElementById("authorization-code").textContent = "Access Token Processed";
+    document.getElementById("user-info").textContent = JSON.stringify(data, null, 2);
+  } catch (err) {
+    document.getElementById("authorization-code").textContent = "Error: " + err;
+  }
+}
+
+window.onload = () => {
+  const code = getAuthorizationCodeFromUrl();
+  if (!code) {
+    loginWithMixpanel();
+    return;
+  }
+  document.getElementById("authorization-code").textContent = "Authorization Code: " + code;
+  getAccessToken(code);
+};
+</script>
+</head>
+<body>
+<h1>Login with Mixpanel</h1>
+<button onclick="loginWithMixpanel()">Login</button>
+<p id="authorization-code"></p>
+<h2>User Information</h2>
+<pre id="user-info"></pre>
+</body>
+</html>
