@@ -15,73 +15,69 @@ function loginWithMixpanel() {
     "&code_challenge=QH_C1pgDH6hLTwHtRDjw0KvPvt02uPrenrA5zQcuhKQ" +
     "&code_challenge_method=S256";
 
-  window.open(
-    authUrl,
-    "mixpanel_oauth",
-    "width=600,height=700"
-  );
+  window.open(authUrl, "mixpanel_oauth", "width=600,height=700");
 }
 
-async function getAccessToken(code) {
+// Step 1: Exchange code for access token
+async function getAccessToken() {
+  const code = document.getElementById("auth-code").value.trim();
+  if (!code) return alert("Paste authorization code first!");
+
   try {
-    const res = await fetch("/exchange", {
+    const res = await fetch("/get-token", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code })
     });
-
     const data = await res.json();
-    document.getElementById("authorization-code").textContent =
-      "Access Token Processed";
-    document.getElementById("user-info").textContent =
-      JSON.stringify(data, null, 2);
+    if (data.access_token) {
+      document.getElementById("access-token").textContent = data.access_token;
+      alert("Access Token retrieved! Now you can run MCP requests.");
+    } else {
+      document.getElementById("access-token").textContent =
+        "Error: " + JSON.stringify(data);
+    }
   } catch (err) {
-    document.getElementById("authorization-code").textContent =
-      "Error: " + err;
+    document.getElementById("access-token").textContent = "Error: " + err;
   }
 }
 
-function submitAuthCode() {
-  const code = document.getElementById("auth-code").value.trim();
-  if (!code) {
-    alert("Authorization code required");
-    return;
+// Step 2: Run MCP requests
+async function runMCPRequests() {
+  const token = document.getElementById("access-token").textContent.trim();
+  if (!token || token.startsWith("Error")) return alert("Get access token first!");
+
+  try {
+    const res = await fetch("/run-mcp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ access_token: token })
+    });
+    const data = await res.json();
+    document.getElementById("user-info").textContent = JSON.stringify(data, null, 2);
+  } catch (err) {
+    document.getElementById("user-info").textContent = "Error: " + err;
   }
-
-  document.getElementById("authorization-code").textContent =
-    "Authorization Code: " + code;
-
-  getAccessToken(code);
 }
-
-window.onload = () => {
-  const code = new URLSearchParams(window.location.search).get("code");
-  if (code) {
-    document.getElementById("authorization-code").textContent =
-      "Authorization Code: " + code;
-    document.getElementById("auth-code").value = code;
-  }
-};
 </script>
 </head>
-
 <body>
 
 <h1>Login with Mixpanel</h1>
 
 <button onclick="loginWithMixpanel()">Login</button>
 
-<p id="authorization-code"></p>
-
-<input
-  type="text"
-  id="auth-code"
-  placeholder="Paste authorization code here"
-/>
+<p>Authorization Code:</p>
+<input type="text" id="auth-code" placeholder="Paste code here" style="width: 400px;" />
 
 <br><br>
+<button onclick="getAccessToken()">Get Access Token</button>
 
-<button onclick="submitAuthCode()">Generate Token</button>
+<p>Access Token:</p>
+<pre id="access-token"></pre>
+
+<br>
+<button onclick="runMCPRequests()">Run MCP Requests</button>
 
 <h2>User Information</h2>
 <pre id="user-info"></pre>
