@@ -6,11 +6,6 @@
 <title>Login with Mixpanel</title>
 
 <script>
-function getAuthorizationCodeFromUrl() {
-  const urlParams = new URLSearchParams(window.location.search);
-  return urlParams.get('code');
-}
-
 function loginWithMixpanel() {
   const authUrl =
     "https://mixpanel.com/oauth/authorize" +
@@ -47,9 +42,9 @@ async function getAccessToken(code) {
 }
 
 function submitAuthCode() {
-  const code = document.getElementById("auth-code-input").value;
+  const code = document.getElementById("auth-code").value.trim();
   if (!code) {
-    alert("Please paste authorization code");
+    alert("Authorization code required");
     return;
   }
 
@@ -59,29 +54,34 @@ function submitAuthCode() {
   getAccessToken(code);
 }
 
-window.onload = () => {};
+window.onload = () => {
+  const code = new URLSearchParams(window.location.search).get("code");
+  if (code) {
+    document.getElementById("authorization-code").textContent =
+      "Authorization Code: " + code;
+    document.getElementById("auth-code").value = code;
+  }
+};
 </script>
 </head>
 
 <body>
+
 <h1>Login with Mixpanel</h1>
 
 <button onclick="loginWithMixpanel()">Login</button>
 
-<br><br>
+<p id="authorization-code"></p>
 
 <input
   type="text"
-  id="auth-code-input"
+  id="auth-code"
   placeholder="Paste authorization code here"
-  style="width: 400px;"
 />
 
 <br><br>
 
 <button onclick="submitAuthCode()">Generate Token</button>
-
-<p id="authorization-code"></p>
 
 <h2>User Information</h2>
 <pre id="user-info"></pre>
