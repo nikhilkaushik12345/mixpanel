@@ -67,8 +67,6 @@ app.post("/projects", async (req, res) => {
     });
 
     const projectsRaw = await projectsRes.text();
-
-    // Mixpanel MCP returns text/event-stream, need to parse JSON from data
     const dataMatch = projectsRaw.match(/data: (.*)/);
     if (!dataMatch) return res.status(500).json({ error: "Invalid project response" });
     const projectsData = JSON.parse(dataMatch[1]);
