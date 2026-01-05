@@ -16,8 +16,8 @@ app.get("/callback", (req, res) => {
   res.redirect("/?code=" + req.query.code);
 });
 
-// Exchange code + call MCP
-app.post("/exchange", async (req, res) => {
+// Step 1: Exchange code for access token
+app.post("/get-token", async (req, res) => {
   try {
     const { code } = req.body;
 
@@ -28,27 +28,34 @@ app.post("/exchange", async (req, res) => {
     params.append("client_id", "7Zcm8MIcu6LO1UnyNc26xcvjgiTvxmqnXz1flAes");
     params.append("code_verifier", "qowgHWiPUC7WCA4IaYDCiZU9UcTUoT2SnIAoRRuUc9M");
 
-// 1️⃣ Exchange authorization code for access token
-const tokenRes = await fetch("https://mixpanel.com/oauth/token/", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/x-www-form-urlencoded",
-    "Accept": "application/json"
-  },
-  body: params.toString()
+    const tokenRes = await fetch("https://mixpanel.com/oauth/token/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Accept": "application/json"
+      },
+      body: params.toString()
+    });
+
+    const token = await tokenRes.json();
+    if (!token.access_token) return res.status(400).json(token);
+
+    res.json({ access_token: token.access_token });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-const token = await tokenRes.json();
-if (!token.access_token) return res.status(400).json(token);
+// Step 2: Run MCP requests with existing token
+app.post("/run-mcp", async (req, res) => {
+  try {
+    const { access_token } = req.body;
 
-const accessToken = token.access_token;
-
-
-    // 2️⃣ Get projects
+    // Get projects
     const projectsRes = await fetch("https://mcp.mixpanel.com/mcp", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${accessToken}`,
+        Authorization: `Bearer ${access_token}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
@@ -65,14 +72,13 @@ const accessToken = token.access_token;
     const projectsData = await projectsRes.json();
     const projects = projectsData.result?.projects || [];
 
-    // 3️⃣ Create tag for each project_id
+    // Create tag for each project
     const results = [];
-
     for (const project of projects) {
       const tagRes = await fetch("https://mcp.mixpanel.com/mcp", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${accessToken}`,
+          Authorization: `Bearer ${access_token}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
@@ -90,17 +96,10 @@ const accessToken = token.access_token;
       });
 
       const tagData = await tagRes.json();
-      results.push({
-        project_id: project.project_id,
-        result: tagData
-      });
+      results.push({ project_id: project.project_id, result: tagData });
     }
 
-    res.json({
-      projects,
-      tags_created: results
-    });
-
+    res.json({ projects, tags_created: results });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
