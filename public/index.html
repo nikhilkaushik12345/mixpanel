@@ -5,6 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Login with Mixpanel</title>
 <script>
+function loginWithMixpanel() {
+  const authUrl =
+    "https://mixpanel.com/oauth/authorize" +
+    "?client_id=7Zcm8MIcu6LO1UnyNc26xcvjgiTvxmqnXz1flAes" +
+    "&redirect_uri=" + encodeURIComponent("http://localhost:8000/callback") +
+    "&response_type=code" +
+    "&code_challenge=HXBGwnUh-mSZyngCxMRhMwpckOvTne1keIm-WYH_-oU" +
+    "&code_challenge_method=S256";
+
+  window.location.href = authUrl;
+}
+
 async function exchangeCode() {
   const code = document.getElementById("auth-code").value.trim();
 
@@ -61,8 +73,12 @@ window.onload = () => {
 <body>
 <h1>Login with Mixpanel</h1>
 
+<button onclick="loginWithMixpanel()">Login</button>
+<br><br>
+
 <input type="text" id="auth-code" placeholder="Paste authorization code here" />
 <br><br>
+
 <button onclick="exchangeCode()">Exchange Code</button>
 
 <p id="authorization-code"></p>
