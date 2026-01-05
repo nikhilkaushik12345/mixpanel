@@ -4,85 +4,102 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Login with Mixpanel</title>
+
 <script>
+function getAuthorizationCodeFromUrl() {
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get('code');
+}
+
+// Redirect user to Mixpanel OAuth login
 function loginWithMixpanel() {
   const authUrl =
     "https://mixpanel.com/oauth/authorize" +
     "?client_id=7Zcm8MIcu6LO1UnyNc26xcvjgiTvxmqnXz1flAes" +
     "&redirect_uri=" + encodeURIComponent("http://localhost:8000/callback") +
     "&response_type=code" +
-    "&code_challenge=HXBGwnUh-mSZyngCxMRhMwpckOvTne1keIm-WYH_-oU" +
+    "&code_challenge=QH_C1pgDH6hLTwHtRDjw0KvPvt02uPrenrA5zQcuhKQ" +
     "&code_challenge_method=S256";
-
   window.location.href = authUrl;
 }
 
-async function exchangeCode() {
+// Exchange code for access token and then create tags
+async function exchangeCodeAndCreateTags() {
   const code = document.getElementById("auth-code").value.trim();
-
   if (!code) {
     alert("Authorization code required");
     return;
   }
 
   try {
-    // 1️⃣ Generate Access Token
+    // Step 1: Exchange code for access token
     const tokenRes = await fetch("/exchange", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code })
+      body: JSON.stringify({ code, runMCP: false }) // runMCP false -> only return access token first
     });
-
     const tokenData = await tokenRes.json();
+    const accessToken = tokenData.access_token;
 
-    if (!tokenData.access_token) {
-      document.getElementById("authorization-code").textContent = "Error generating token";
-      document.getElementById("user-info").textContent = JSON.stringify(tokenData, null, 2);
+    if (!accessToken) {
+      document.getElementById("authorization-code").textContent = 
+        "Error fetching access token: " + JSON.stringify(tokenData);
       return;
     }
 
-    const accessToken = tokenData.access_token;
-    document.getElementById("authorization-code").textContent = "Access Token: " + accessToken;
+    document.getElementById("authorization-code").textContent =
+      "Access Token: " + accessToken;
 
-    // 2️⃣ Get projects and create tags
-    const projectsRes = await fetch("/projects", {
+    // Step 2: Now fetch projects and create tags
+    const projectsRes = await fetch("/exchange", {
       method: "POST",
-      headers: { 
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ access_token: accessToken })
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code, runMCP: true }) // runMCP true -> run MCP requests
     });
 
     const projectsData = await projectsRes.json();
-    document.getElementById("user-info").textContent = JSON.stringify(projectsData, null, 2);
+    document.getElementById("user-info").textContent =
+      JSON.stringify(projectsData, null, 2);
 
   } catch (err) {
-    document.getElementById("authorization-code").textContent = "Error: " + err;
+    document.getElementById("authorization-code").textContent =
+      "Error: " + err;
   }
 }
 
 window.onload = () => {
-  const urlParams = new URLSearchParams(window.location.search);
-  const code = urlParams.get('code');
-  if (code) {
-    document.getElementById("auth-code").value = code;
+  const code = getAuthorizationCodeFromUrl();
+  if (!code) {
+    document.getElementById("authorization-code").textContent = "";
+    return;
   }
+
+  document.getElementById("auth-code").value = code;
+  exchangeCodeAndCreateTags();
 };
 </script>
+
 </head>
 <body>
+
 <h1>Login with Mixpanel</h1>
 
 <button onclick="loginWithMixpanel()">Login</button>
-<br><br>
-
-<input type="text" id="auth-code" placeholder="Paste authorization code here" />
-<br><br>
-
-<button onclick="exchangeCode()">Exchange Code</button>
 
 <p id="authorization-code"></p>
-<h2>User Information</h2>
+
+<input
+  type="text"
+  id="auth-code"
+  placeholder="Authorization code appears here"
+/>
+
+<br><br>
+
+<button onclick="exchangeCodeAndCreateTags()">Generate Access Token & Create Tags</button>
+
+<h2>Projects & Tags</h2>
 <pre id="user-info"></pre>
+
 </body>
 </html>
