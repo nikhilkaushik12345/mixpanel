@@ -11,7 +11,7 @@ function getAuthorizationCodeFromUrl() {
   return urlParams.get('code');
 }
 
-// Redirect user to Mixpanel OAuth login
+// Open Mixpanel OAuth in a popup
 function loginWithMixpanel() {
   const authUrl =
     "https://mixpanel.com/oauth/authorize" +
@@ -20,29 +20,36 @@ function loginWithMixpanel() {
     "&response_type=code" +
     "&code_challenge=QH_C1pgDH6hLTwHtRDjw0KvPvt02uPrenrA5zQcuhKQ" +
     "&code_challenge_method=S256";
-  window.location.href = authUrl;
+
+  window.open(
+    authUrl,
+    "MixpanelOAuth",
+    "width=600,height=800"
+  );
 }
 
-// Exchange code for access token and then create tags
-async function exchangeCodeAndCreateTags() {
+// Exchange authorization code and fetch projects + create tags
+async function exchangeCode() {
   const code = document.getElementById("auth-code").value.trim();
+
   if (!code) {
     alert("Authorization code required");
     return;
   }
 
   try {
-    // Step 1: Exchange code for access token
+    // Step 1: Get access token
     const tokenRes = await fetch("/exchange", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, runMCP: false }) // runMCP false -> only return access token first
+      body: JSON.stringify({ code, runMCP: false })
     });
+
     const tokenData = await tokenRes.json();
     const accessToken = tokenData.access_token;
 
     if (!accessToken) {
-      document.getElementById("authorization-code").textContent = 
+      document.getElementById("authorization-code").textContent =
         "Error fetching access token: " + JSON.stringify(tokenData);
       return;
     }
@@ -50,11 +57,11 @@ async function exchangeCodeAndCreateTags() {
     document.getElementById("authorization-code").textContent =
       "Access Token: " + accessToken;
 
-    // Step 2: Now fetch projects and create tags
+    // Step 2: Fetch projects and create tags
     const projectsRes = await fetch("/exchange", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, runMCP: true }) // runMCP true -> run MCP requests
+      body: JSON.stringify({ code, runMCP: true })
     });
 
     const projectsData = await projectsRes.json();
@@ -67,19 +74,18 @@ async function exchangeCodeAndCreateTags() {
   }
 }
 
+// If page loads with code in URL, prefill input
 window.onload = () => {
   const code = getAuthorizationCodeFromUrl();
-  if (!code) {
-    document.getElementById("authorization-code").textContent = "";
-    return;
+  if (code) {
+    document.getElementById("authorization-code").textContent =
+      "Authorization Code: " + code;
+    document.getElementById("auth-code").value = code;
   }
-
-  document.getElementById("auth-code").value = code;
-  exchangeCodeAndCreateTags();
 };
 </script>
-
 </head>
+
 <body>
 
 <h1>Login with Mixpanel</h1>
@@ -91,12 +97,12 @@ window.onload = () => {
 <input
   type="text"
   id="auth-code"
-  placeholder="Authorization code appears here"
+  placeholder="Paste authorization code here"
 />
 
 <br><br>
 
-<button onclick="exchangeCodeAndCreateTags()">Exchange Code</button>
+<button onclick="exchangeCode()">Exchange Code</button>
 
 <h2>User Information</h2>
 <pre id="user-info"></pre>
