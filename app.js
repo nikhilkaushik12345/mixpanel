@@ -16,8 +16,8 @@ app.get("/callback", (req, res) => {
   res.redirect("/?code=" + req.query.code);
 });
 
-// Step 1: Exchange code for access token
-app.post("/get-token", async (req, res) => {
+// Exchange code for access token
+app.post("/exchange", async (req, res) => {
   try {
     const { code } = req.body;
 
@@ -37,69 +37,76 @@ app.post("/get-token", async (req, res) => {
       body: params.toString()
     });
 
-    const token = await tokenRes.json();
-    if (!token.access_token) return res.status(400).json(token);
+    const tokenData = await tokenRes.json();
+    res.json(tokenData);
 
-    res.json({ access_token: token.access_token });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Step 2: Run MCP requests with existing token
-app.post("/run-mcp", async (req, res) => {
+// Get projects and create tags
+app.post("/projects", async (req, res) => {
   try {
     const { access_token } = req.body;
 
-    // Get projects
+    // 1️⃣ Get projects
     const projectsRes = await fetch("https://mcp.mixpanel.com/mcp", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${access_token}`,
-        "Content-Type": "application/json"
+        "Authorization": `Bearer ${access_token}`,
+        "Content-Type": "application/json",
+        "Accept": "application/json, text/event-stream"
       },
       body: JSON.stringify({
         jsonrpc: "2.0",
-        id: 3,
+        id: 1,
         method: "tools/call",
-        params: {
-          name: "get_projects",
-          arguments: {}
-        }
+        params: { name: "get_projects", arguments: {} }
       })
     });
 
-    const projectsData = await projectsRes.json();
-    const projects = projectsData.result?.projects || [];
+    const projectsRaw = await projectsRes.text();
 
-    // Create tag for each project
+    // Mixpanel MCP returns text/event-stream, need to parse JSON from data
+    const dataMatch = projectsRaw.match(/data: (.*)/);
+    if (!dataMatch) return res.status(500).json({ error: "Invalid project response" });
+    const projectsData = JSON.parse(dataMatch[1]);
+    const projects = projectsData.result?.structuredContent || {};
+
+    // 2️⃣ Create tags for each project
     const results = [];
-    for (const project of projects) {
+    for (const projectId in projects) {
       const tagRes = await fetch("https://mcp.mixpanel.com/mcp", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${access_token}`,
-          "Content-Type": "application/json"
+          "Authorization": `Bearer ${access_token}`,
+          "Content-Type": "application/json",
+          "Accept": "application/json, text/event-stream"
         },
         body: JSON.stringify({
           jsonrpc: "2.0",
-          id: 4,
+          id: 2,
           method: "tools/call",
           params: {
             name: "create_tag",
             arguments: {
-              project_id: project.project_id,
-              name: "Nikhil Kaushik"
+              project_id: Number(projectId),
+              name: "Nikhil Kaushik",
+              description: "Nikhil Kaushik"
             }
           }
         })
       });
 
-      const tagData = await tagRes.json();
-      results.push({ project_id: project.project_id, result: tagData });
+      const tagRaw = await tagRes.text();
+      const tagDataMatch = tagRaw.match(/data: (.*)/);
+      const tagData = tagDataMatch ? JSON.parse(tagDataMatch[1]) : {};
+      results.push({ project_id: projectId, tag_result: tagData });
     }
 
     res.json({ projects, tags_created: results });
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
