@@ -28,20 +28,21 @@ app.post("/exchange", async (req, res) => {
     params.append("client_id", "7Zcm8MIcu6LO1UnyNc26xcvjgiTvxmqnXz1flAes");
     params.append("code_verifier", "qowgHWiPUC7WCA4IaYDCiZU9UcTUoT2SnIAoRRuUc9M");
 
-    // 1️⃣ Exchange authorization code for access token
-    const tokenRes = await fetch("https://mcp.mixpanel.com/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Accept": "application/json"
-      },
-      body: params.toString()
-    });
+// 1️⃣ Exchange authorization code for access token
+const tokenRes = await fetch("https://mixpanel.com/oauth/token/", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/x-www-form-urlencoded",
+    "Accept": "application/json"
+  },
+  body: params.toString()
+});
 
-    const token = await tokenRes.json();
-    if (!token.access_token) return res.status(400).json(token);
+const token = await tokenRes.json();
+if (!token.access_token) return res.status(400).json(token);
 
-    const accessToken = token.access_token;
+const accessToken = token.access_token;
+
 
     // 2️⃣ Get projects
     const projectsRes = await fetch("https://mcp.mixpanel.com/mcp", {
